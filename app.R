@@ -35,13 +35,6 @@ ui <- fluidPage(
                              numericInput("ULF2", "", value = 0.03,
                                           min = 0.0, max = 1.0)
                            ),
-                           
-                           
-                           #sliderInput("ULF",
-                            #           "Choose the ULF band values for 
-                            #           Fourier Analysis (1 = 0.01, 10 = 0.1, 
-                            #           100 = 1)",
-                            #           min = 0, max = 100, value = c(0, 3)),
                            strong("Choose the VLF band values for 
                                        Fourier Analysis"),
                            splitLayout(
@@ -50,10 +43,6 @@ ui <- fluidPage(
                              numericInput("VLF2", "", value = 0.05,
                                           min = 0.0, max = 1.0)
                            ),
-                           #sliderInput("VLF",
-                            #           "Choose the VLF band values for Fourier 
-                            #           Analysis (1 = 0.01, 10 = 0.1, 100 = 1)",
-                            #           min = 0, max = 100, value = c(3, 5)),
                            strong("Choose the LF band values for 
                                        Fourier Analysis"),
                            splitLayout(
@@ -62,10 +51,6 @@ ui <- fluidPage(
                              numericInput("LF2", "", value = 0.15,
                                           min = 0.0, max = 1.0)
                            ),
-                           #sliderInput("LF",
-                            #           "Choose the LF band values for Fourier 
-                            #           Analysis (1 = 0.01, 10 = 0.1, 100 = 1)",
-                            #           min = 0, max = 100, value = c(5, 15)),
                            strong("Choose the HF band values for 
                                        Fourier Analysis"),
                            splitLayout(
@@ -74,10 +59,6 @@ ui <- fluidPage(
                              numericInput("HF2", "", value = 0.4,
                                           min = 0.0, max = 1.0)
                            ),
-                           #sliderInput("HF",
-                            #           "Choose the HF band values for Fourier 
-                            #           Analysis (1 = 0.01, 10 = 0.1, 100 = 1)",
-                            #           min = 0, max = 100, value = c(15, 40)),
                            actionButton("csv_button_f",
                                         "Download freq_analysis.csv"),
                            p(textOutput("download_message_f"))
