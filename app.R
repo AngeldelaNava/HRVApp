@@ -71,7 +71,9 @@ ui <- fluidPage(
                            ),
                   tabPanel("Maximum Lyapunov",
                            c("Maximum Lyapunov"))
-                  )
+                  ),
+      actionButton("downloadButton", "Download analysis.csv"),
+      p(textOutput("download_general"))
       ),
     mainPanel(
       tabsetPanel(id = "t2", type = "pills",
@@ -130,6 +132,70 @@ server <- function(input, output, session) {
                           selected = "Maximum Lyapunov")
       }
     }
+  })
+  
+  output$download_general <- renderText({
+    req(input$upload)
+    
+    tryCatch({
+      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+      hrv.data = BuildNIHR(hrv.data)
+      if(input$filter_button){
+        hrv.data = FilterNIHR(hrv.data)
+      }
+      
+      tryCatch({
+        hrv.data = CreateTimeAnalysis(hrv.data, size = input$size,
+                                      interval = input$interval)
+        CHARACTERISTICS = c("Size", "Interval", "SDNN (msec.)", "SDANN (msec.)",
+                            "SDNNIDX (msec.)", "pNN50 (%)", "SDSD (msec.)",
+                            "r-MSSD (msec.)", "IRRR (msec.)", "MADRR (msec.)",
+                            "TINN (msec.)", "HRV index")
+        VALUES = c(input$size, input$interval, hrv.data$TimeAnalysis[[1]]$SDNN,
+                   hrv.data$TimeAnalysis[[1]]$SDANN,
+                   hrv.data$TimeAnalysis[[1]]$SDNNIDX,
+                   hrv.data$TimeAnalysis[[1]]$pNN50,
+                   hrv.data$TimeAnalysis[[1]]$SDSD,
+                   hrv.data$TimeAnalysis[[1]]$rMSSD,
+                   hrv.data$TimeAnalysis[[1]]$IRRR,
+                   hrv.data$TimeAnalysis[[1]]$MADRR,
+                   hrv.data$TimeAnalysis[[1]]$TINN,
+                   hrv.data$TimeAnalysis[[1]]$HRVi)
+        hrv.data = InterpolateNIHR(hrv.data, freqhr = input$freqhr)
+        hrv.data = CreateFreqAnalysis(hrv.data)
+        hrv.data = CalculatePSD(hrv.data, indexFreqAnalysis = 1, doPlot = FALSE)
+        BANDS = c("ULF", "VLF", "LF", "HF")
+        ENERGY = CalculateEnergyInPSDBands(hrv.data, indexFreqAnalysis = 1,
+                                           ULFmax = (input$ULF2),
+                                           VLFmin = (input$VLF1),
+                                           VLFmax = (input$VLF2),
+                                           LFmin = (input$LF1),
+                                           LFmax = (input$LF2),
+                                           HFmin = (input$HF1),
+                                           HFmax = (input$HF2))
+        
+        req(input$downloadButton)
+        tryCatch({
+          A = c(CHARACTERISTICS, BANDS)
+          B = c(VALUES, ENERGY)
+          write.csv(data.frame(A, B), "analysis.csv")
+          c <- "analysis.csv downloaded succesfully\n"
+        }, error = function(e){
+          cat("Error: analysis.csv not downloaded\n")
+          c <- "Error: analysis.csv not downloaded"
+          stop(safeError(e))
+        })
+        c
+      },
+      error = function(e) {
+        cat("Error: data filtering failed\n")
+        stop(safeError(e))
+      })
+    },
+    error = function(e) {
+      cat("Error: upload failed\n")
+      stop(safeError(e))
+    })
   })
   
   output$graphic <- renderPlot({
