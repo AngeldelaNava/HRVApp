@@ -1,5 +1,6 @@
 library(shiny)
 library(RHRV)
+library(nonlinearTseries)
 
 source("hrv.R")
 
@@ -64,7 +65,15 @@ ui <- fluidPage(
                            p(textOutput("download_message_f"))
                            ),
                   tabPanel("Embedding Dimension & Timelag",
-                           c("Embedding Dimension & Timelag")
+                           c("Embedding Dimension & Timelag"),
+                           numericInput("lagMax", "Choose the maximum lag",
+                                        value = 100, min = 0, max = 1000),
+                           numericInput("numberPoints",
+                                        "Choose the number of points to use",
+                                        value = 10000, min = 2000, max = 50000),
+                           numericInput("maxEmbeddingDim",
+                                        "Choose the maximum embedding dimension",
+                                        value = 15, min = 1, max = 100)
                            ),
                   tabPanel("Correlation Dimension",
                            c("Correlation Dimension")
@@ -89,16 +98,20 @@ ui <- fluidPage(
                    ),
                    tabPanel("Nonlinear Analysis",
                             actionButton("start_nla",
-                                         "Start Nonlinear Analysis"),
+                                         "Start Nonlinear Analysis (WARNING: takes a long time"),
                             tabsetPanel(id = "t3", type = "tabs",
                                         tabPanel("Embedding Dimension & Timelag",
-                                                 h3("Nonlinear Analysis: Embedding Dimension and Timelag")
+                                                 h3("Nonlinear Analysis: Embedding Dimension and Timelag estimations"),
+                                                 strong("Time Lag Estimation"),
+                                                 plotOutput("time_lag"),
+                                                 strong("Embedding Dimension Estimation"),
+                                                 plotOutput("emb_dim")
                                         ),
                                         tabPanel("Correlation Dimension",
                                                   h3("Nonlinear Analysis by Correlation Dimension")
                                                   ),
                                          tabPanel("Maximum Lyapunov",
-                                                 h3("Nonlinear Analysis by Maximum Lyapunov")
+                                                 h3("Nonlinear Analysis by Maximum Lyapunov Exponent")
                                         )))
       )
     )
@@ -456,6 +469,64 @@ server <- function(input, output, session) {
       },
       error = function(e) {
         cat("Error: data filtering failed\n")
+        stop(safeError(e))
+      })
+    },
+    error = function(e) {
+      cat("Error: upload failed\n")
+      stop(safeError(e))
+    })
+  })
+  
+  output$time_lag <- renderPlot({
+    req(input$upload)
+    tryCatch({
+      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+      hrv.data = BuildNIHR(hrv.data)
+      if(input$filter_button){
+        hrv.data = FilterNIHR(hrv.data)
+      }
+      req(input$start_nla)
+      tryCatch({
+        hrv.data = CreateNonLinearAnalysis(hrv.data)
+        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+                                 useFunction = timeAsymmetry2, tau = 4,
+                                 doPlot = FALSE)
+        CalculateTimeLag(hrv.data, lagMax = input$lagMax)
+      },
+      error = function(e) {
+        cat("Error: non-linear analysis failed\n")
+        stop(safeError(e))
+      })
+    },
+    error = function(e) {
+      cat("Error: upload failed\n")
+      stop(safeError(e))
+    })
+  })
+  
+  output$emb_dim <- renderPlot({
+    req(input$upload)
+    tryCatch({
+      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+      hrv.data = BuildNIHR(hrv.data)
+      if(input$filter_button){
+        hrv.data = FilterNIHR(hrv.data)
+      }
+      req(input$start_nla)
+      tryCatch({
+        hrv.data = CreateNonLinearAnalysis(hrv.data)
+        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+                                 useFunction = timeAsymmetry2, tau = 4,
+                                 doPlot = FALSE)
+        kTimeLag = CalculateTimeLag(hrv.data, lagMax = input$lagMax,
+                                    doPlot = FALSE)
+        CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
+                              timeLag = kTimeLag,
+                              maxEmbeddingDim = input$maxEmbeddingDim)
+      },
+      error = function(e) {
+        cat("Error: non-linear analysis failed\n")
         stop(safeError(e))
       })
     },
