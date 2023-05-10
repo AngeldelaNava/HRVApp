@@ -98,10 +98,9 @@ ui <- fluidPage(
                    ),
                    tabPanel("Nonlinear Analysis",
                             actionButton("start_nla",
-                                         "Start Nonlinear Analysis (WARNING: takes a long time"),
+                                         "Start Nonlinear Analysis (WARNING: takes a long time)"),
                             tabsetPanel(id = "t3", type = "tabs",
-                                        tabPanel("Embedding Dimension & Timelag",
-                                                 h3("Nonlinear Analysis: Embedding Dimension and Timelag estimations"),
+                                        tabPanel(h3("Nonlinear Analysis: Embedding Dimension and Timelag estimations"),
                                                  strong("Time Lag Estimation"),
                                                  plotOutput("time_lag"),
                                                  strong("Embedding Dimension Estimation"),
@@ -492,7 +491,7 @@ server <- function(input, output, session) {
         hrv.data = SurrogateTest(hrv.data, significance = 0.05,
                                  useFunction = timeAsymmetry2, tau = 4,
                                  doPlot = FALSE)
-        CalculateTimeLag(hrv.data, lagMax = input$lagMax)
+        CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax)
       },
       error = function(e) {
         cat("Error: non-linear analysis failed\n")
@@ -519,7 +518,7 @@ server <- function(input, output, session) {
         hrv.data = SurrogateTest(hrv.data, significance = 0.05,
                                  useFunction = timeAsymmetry2, tau = 4,
                                  doPlot = FALSE)
-        kTimeLag = CalculateTimeLag(hrv.data, lagMax = input$lagMax,
+        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax,
                                     doPlot = FALSE)
         CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
                               timeLag = kTimeLag,
