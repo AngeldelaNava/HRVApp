@@ -63,9 +63,8 @@ ui <- fluidPage(
                            actionButton("csv_button_f",
                                         "Download freq_analysis.csv"),
                            p(textOutput("download_message_f"))
-                           ),
+                  ),
                   tabPanel("Embedding Dimension & Timelag",
-                           c("Embedding Dimension & Timelag"),
                            numericInput("lagMax", "Choose the maximum lag",
                                         value = 100, min = 0, max = 1000),
                            numericInput("numberPoints",
@@ -74,50 +73,76 @@ ui <- fluidPage(
                            numericInput("maxEmbeddingDim",
                                         "Choose the maximum embedding dimension",
                                         value = 15, min = 1, max = 100)
-                           ),
-                  tabPanel("Correlation Dimension",
-                           c("Correlation Dimension")
-                           ),
-                  tabPanel("Maximum Lyapunov",
-                           c("Maximum Lyapunov"))
                   ),
+                  tabPanel("Correlation Dimension",
+                           actionButton("start_cd",
+                                        "Start Correlation dimension (WARNING: Takes a long time)"),
+                           strong("Choose the range of distance to compute the correlation sum"),
+                           splitLayout(
+                             numericInput("minRadius", "", value = 1, min = 1,
+                                          max = 500),
+                             numericInput("maxRadius", "", value = 100, min = 1,
+                                          max = 500)
+                           ),
+                           numericInput("pointsRadius",
+                                        "Choose the number of radius to compute the correlation sum",
+                                        value = 100, min = 1, max = 500),
+                           numericInput("theilerWindow",
+                                        "Choose the value of the Theiler window",
+                                        value = 20, min = 1, max = 100)
+                  ),
+                  tabPanel("Maximum Lyapunov",
+                           actionButton("start_lya",
+                                        "Start Maximum Lyapunov exponent (WARNING: Takes a long time)"),
+                           numericInput("radius",
+                                        "Choose the radius of the analysis",
+                                        value = 3, min = 1, max = 5),
+                           numericInput("theilerWindowLya",
+                                        "Choose the value of the Theiler window",
+                                        value = 20, min = 1, max = 100)
+                  )
+      ),
       actionButton("downloadButton", "Download analysis.csv"),
       p(textOutput("download_general"))
-      ),
+    ),
     mainPanel(
       tabsetPanel(id = "t2", type = "pills",
-                   tabPanel("Time Analysis",
-                            h3("Heart Rate Plot"),
-                            plotOutput("graphic"),
-                            tableOutput("time_analysis")
-                   ),
-                   tabPanel("Frequency Analysis",
-                            h3("Frequency Analysis"),
-                            plotOutput("freq_analysis"),
-                            tableOutput("freq_table")
-                   ),
-                   tabPanel("Nonlinear Analysis",
-                            actionButton("start_nla",
-                                         "Start Nonlinear Analysis (WARNING: takes a long time)"),
-                            tabsetPanel(id = "t3", type = "tabs",
-                                        tabPanel(h3("Nonlinear Analysis: Embedding Dimension and Timelag estimations"),
-                                                 strong("Time Lag Estimation"),
-                                                 plotOutput("time_lag"),
-                                                 strong("Embedding Dimension Estimation"),
-                                                 plotOutput("emb_dim")
-                                        ),
-                                        tabPanel("Correlation Dimension",
-                                                  h3("Nonlinear Analysis by Correlation Dimension")
-                                                  ),
-                                         tabPanel("Maximum Lyapunov",
-                                                 h3("Nonlinear Analysis by Maximum Lyapunov Exponent")
-                                        )))
+         tabPanel("Time Analysis",
+                  h3("Heart Rate Plot"),
+                  plotOutput("graphic"),
+                  tableOutput("time_analysis")
+         ),
+         tabPanel("Frequency Analysis",
+                  h3("Frequency Analysis"),
+                  plotOutput("freq_analysis"),
+                  tableOutput("freq_table")
+         ),
+         tabPanel("Nonlinear Analysis",
+                  actionButton("start_nla",
+                               "Start Nonlinear Analysis (WARNING: takes a long time)"),
+                  tabsetPanel(id = "t3", type = "tabs",
+                              tabPanel(("Embedding Dimension & Timelag"),
+                                       h3("Nonlinear Analysis: Embedding Dimension and Timelag estimations"),
+                                       strong("Time Lag Estimation"),
+                                       plotOutput("time_lag"),
+                                       strong("Embedding Dimension Estimation"),
+                                       plotOutput("emb_dim")
+                              ),
+                              tabPanel("Correlation Dimension",
+                                       h3("Nonlinear Analysis by Correlation Dimension"),
+                                       plotOutput("corr_plot"),
+                                       tableOutput("corr_table")
+                              ),
+                              tabPanel("Maximum Lyapunov",
+                                       h3("Nonlinear Analysis by Maximum Lyapunov Exponent"),
+                                       plotOutput("lya_plot")
+                              )
+                    )
+         )
       )
     )
   )
 )
-
-
 
 
 server <- function(input, output, session) {
@@ -534,6 +559,100 @@ server <- function(input, output, session) {
       stop(safeError(e))
     })
   })
+  
+  output$corr_plot <- renderPlot({
+    req(input$upload)
+    tryCatch({
+      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+      hrv.data = BuildNIHR(hrv.data)
+      if(input$filter_button){
+        hrv.data = FilterNIHR(hrv.data)
+      }
+      req(input$start_nla)
+      tryCatch({
+        hrv.data = CreateNonLinearAnalysis(hrv.data)
+        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+                                 useFunction = timeAsymmetry2, tau = 4,
+                                 doPlot = FALSE)
+        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum",
+                                    lagMax = input$lagMax, doPlot = FALSE)
+        kEmbeddingDim = CalculateEmbeddingDim(hrv.data,
+                                               numberPoints = input$numberPoints,
+                                               timeLag = kTimeLag,
+                                               maxEmbeddingDim = input$maxEmbeddingDim,
+                                               doPlot = FALSE)
+        req(input$start_cd)
+        tryCatch({
+          hrv.data = CalculateCorrDim(hrv.data, indexNonLinearAnalysis = 1,
+                                      minEmbeddingDim = kEmbeddingDim - 1,
+                                      maxEmbeddingDim = kEmbeddingDim + 2,
+                                      timeLag = kTimeLag,
+                                      minRadius = input$minRadius,
+                                      maxRadius = input$maxRadius,
+                                      pointsRadius = input$pointsRadius,
+                                      theilerWindow = input$theilerWindow,
+                                      doPlot = FALSE)
+          PlotCorrDim(hrv.data, indexNonLinearAnalysis = 1)
+        },
+        error = function(e) {
+          cat("Error: Correlation dimension analysis failed")
+        })
+      },
+      error = function(e) {
+        cat("Error: non-linear analysis failed\n")
+        stop(safeError(e))
+      })
+    },
+    error = function(e) {
+      cat("Error: upload failed\n")
+      stop(safeError(e))
+    })
+  })
+  
+  output$lya_plot <- renderPlot({
+    req(input$upload)
+    tryCatch({
+      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+      hrv.data = BuildNIHR(hrv.data)
+      if(input$filter_button){
+        hrv.data = FilterNIHR(hrv.data)
+      }
+      req(input$start_nla)
+      tryCatch({
+        hrv.data = CreateNonLinearAnalysis(hrv.data)
+        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+                                 useFunction = timeAsymmetry2, tau = 4,
+                                 doPlot = FALSE)
+        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax,
+                                    doPlot = FALSE)
+        kEmbeddingDim = CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
+                              timeLag = kTimeLag,
+                              maxEmbeddingDim = input$maxEmbeddingDim)
+        req(input$start_lya)
+        tryCatch({
+          hrv.data = CalculateMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1,
+                                          minEmbeddingDim = kEmbeddingDim,
+                                          maxEmbeddingDim = kEmbeddingDim + 2,
+                                          timeLag = kTimeLag,
+                                          radius = input$radius,
+                                          theilerWindow = input$theilerWindowLya,
+                                          doPlot = FALSE)
+          PlotMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1)
+        }, error = function(e) {
+          cat("Error: Maximum Lyapunov exponent calculation failed")
+        })
+      },
+      error = function(e) {
+        cat("Error: non-linear analysis failed\n")
+        stop(safeError(e))
+      })
+    },
+    error = function(e) {
+      cat("Error: upload failed\n")
+      stop(safeError(e))
+    })
+  })
+  
 }
 
 
