@@ -89,17 +89,30 @@ ui <- fluidPage(
                                         value = 100, min = 1, max = 500),
                            numericInput("theilerWindow",
                                         "Choose the value of the Theiler window",
-                                        value = 20, min = 1, max = 100)
+                                        value = 20, min = 1, max = 100),
+                           strong("Choose the Regression Range: "),
+                           splitLayout(
+                             numericInput("minRegC", "", value = 1.5, min = 1.0,
+                                          max = 100),
+                             numericInput("maxRegC", "", value = 10.0,
+                                          min = 1.0, max = 100)
+                           )
                   ),
                   tabPanel("Maximum Lyapunov",
                            actionButton("start_lya",
                                         "Start Maximum Lyapunov exponent (WARNING: Takes a long time)"),
                            numericInput("radius",
                                         "Choose the radius of the analysis",
-                                        value = 3, min = 1, max = 5),
+                                        value = 1000, min = 1, max = 5000),
                            numericInput("theilerWindowLya",
                                         "Choose the value of the Theiler window",
-                                        value = 20, min = 1, max = 100)
+                                        value = 20, min = 1, max = 100),
+                           strong("Choose the Regression Range: "),
+                           splitLayout(
+                             numericInput("minRegL", "", value = 1.0, min = 1.0,
+                                          max = 100.0),
+                             numericInput("maxRegL", "", value = 6.0,
+                                          min = 1.0, max = 100.0)
                   )
       ),
       actionButton("downloadButton", "Download analysis.csv"),
@@ -135,7 +148,8 @@ ui <- fluidPage(
                               ),
                               tabPanel("Maximum Lyapunov",
                                        h3("Nonlinear Analysis by Maximum Lyapunov Exponent"),
-                                       plotOutput("lya_plot")
+                                       plotOutput("lya_plot"),
+                                       tableOutput("lya_table")
                               )
                     )
          )
@@ -502,7 +516,8 @@ server <- function(input, output, session) {
     })
   })
   
-  output$time_lag <- renderPlot({
+  observe({
+    
     req(input$upload)
     tryCatch({
       hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
@@ -513,90 +528,66 @@ server <- function(input, output, session) {
       req(input$start_nla)
       tryCatch({
         hrv.data = CreateNonLinearAnalysis(hrv.data)
-        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
-                                 useFunction = timeAsymmetry2, tau = 4,
-                                 doPlot = FALSE)
-        CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax)
-      },
-      error = function(e) {
-        cat("Error: non-linear analysis failed\n")
-        stop(safeError(e))
-      })
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
-  
-  output$emb_dim <- renderPlot({
-    req(input$upload)
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      req(input$start_nla)
-      tryCatch({
-        hrv.data = CreateNonLinearAnalysis(hrv.data)
-        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
-                                 useFunction = timeAsymmetry2, tau = 4,
-                                 doPlot = FALSE)
-        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax,
-                                    doPlot = FALSE)
-        CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
-                              timeLag = kTimeLag,
-                              maxEmbeddingDim = input$maxEmbeddingDim)
-      },
-      error = function(e) {
-        cat("Error: non-linear analysis failed\n")
-        stop(safeError(e))
-      })
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
-  
-  output$corr_plot <- renderPlot({
-    req(input$upload)
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      req(input$start_nla)
-      tryCatch({
-        hrv.data = CreateNonLinearAnalysis(hrv.data)
-        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
-                                 useFunction = timeAsymmetry2, tau = 4,
-                                 doPlot = FALSE)
-        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum",
-                                    lagMax = input$lagMax, doPlot = FALSE)
-        kEmbeddingDim = CalculateEmbeddingDim(hrv.data,
-                                               numberPoints = input$numberPoints,
-                                               timeLag = kTimeLag,
-                                               maxEmbeddingDim = input$maxEmbeddingDim,
-                                               doPlot = FALSE)
+        hrv.data = SurrogateTest(
+          hrv.data, significance = 0.05, useFunction = timeAsymmetry2, tau = 4,
+          doPlot = FALSE)
+        kTimeLag = CalculateTimeLag(
+          hrv.data, method = "first.minimum", lagMax = input$lagMax,
+          doPlot = FALSE)
+        output$time_lag <- renderPlot({
+          CalculateTimeLag(
+            hrv.data, method = "first.minimum", lagMax = input$lagMax,
+            doPlot = TRUE)
+        })
+        kEmbeddingDim = CalculateEmbeddingDim(
+          hrv.data, numberPoints = input$numberPoints, timeLag = kTimeLag,
+          maxEmbeddingDim = input$maxEmbeddingDim, doPlot = FALSE)
+        output$emb_dim <- renderPlot({
+          CalculateEmbeddingDim(
+            hrv.data, numberPoints = input$numberPoints, timeLag = kTimeLag,
+            maxEmbeddingDim = input$maxEmbeddingDim, doPlot = TRUE)
+        })
         req(input$start_cd)
         tryCatch({
-          hrv.data = CalculateCorrDim(hrv.data, indexNonLinearAnalysis = 1,
-                                      minEmbeddingDim = kEmbeddingDim - 1,
-                                      maxEmbeddingDim = kEmbeddingDim + 2,
-                                      timeLag = kTimeLag,
-                                      minRadius = input$minRadius,
-                                      maxRadius = input$maxRadius,
-                                      pointsRadius = input$pointsRadius,
-                                      theilerWindow = input$theilerWindow,
-                                      doPlot = FALSE)
-          PlotCorrDim(hrv.data, indexNonLinearAnalysis = 1)
+          hrv.data = CalculateCorrDim(
+            hrv.data, indexNonLinearAnalysis = 1,
+            minEmbeddingDim = kEmbeddingDim - 1,
+            maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
+            minRadius = input$minRadius, maxRadius = input$maxRadius,
+            pointsRadius = input$pointsRadius,
+            theilerWindow = input$theilerWindow, doPlot = FALSE)
+          hrv.data = EstimateCorrDim(
+            hrv.data, indexNonLinearAnalysis = 1,
+            regressionRange = c(minRegC, maxRegC),
+            useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
+            doPlot = FALSE)
+          output$corr_plot <- renderPlot({
+            PlotCorrDim(hrv.data, indexNonLinearAnalysis = 1)
+          })
         },
         error = function(e) {
           cat("Error: Correlation dimension analysis failed")
         })
+        req(input$start_lya)
+        tryCatch({
+          hrv.data = CalculateMaxLyapunov(
+            hrv.data, indexNonLinearAnalysis = 1,
+            minEmbeddingDim = kEmbeddingDim,
+            maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
+            radius = input$radius, theilerWindow = input$theilerWindowLya,
+            doPlot = FALSE)
+          hrv.data = EstimateMaxLyapunov(
+            hrv.data, indexNonLinearAnalysis = 1,
+            regressionRange = c(minRegL, maxRegL),
+            useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2), doPlot = FALSE)
+          output$lya_plot <- renderPlot({
+            PlotMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1)
+          })
+        }, error = function(e) {
+          cat("Error: Maximum Lyapunov exponent calculation failed")
+        })
+        
+        
       },
       error = function(e) {
         cat("Error: non-linear analysis failed\n")
@@ -609,49 +600,157 @@ server <- function(input, output, session) {
     })
   })
   
-  output$lya_plot <- renderPlot({
-    req(input$upload)
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      req(input$start_nla)
-      tryCatch({
-        hrv.data = CreateNonLinearAnalysis(hrv.data)
-        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
-                                 useFunction = timeAsymmetry2, tau = 4,
-                                 doPlot = FALSE)
-        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax,
-                                    doPlot = FALSE)
-        kEmbeddingDim = CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
-                              timeLag = kTimeLag,
-                              maxEmbeddingDim = input$maxEmbeddingDim)
-        req(input$start_lya)
-        tryCatch({
-          hrv.data = CalculateMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1,
-                                          minEmbeddingDim = kEmbeddingDim,
-                                          maxEmbeddingDim = kEmbeddingDim + 2,
-                                          timeLag = kTimeLag,
-                                          radius = input$radius,
-                                          theilerWindow = input$theilerWindowLya,
-                                          doPlot = FALSE)
-          PlotMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1)
-        }, error = function(e) {
-          cat("Error: Maximum Lyapunov exponent calculation failed")
-        })
-      },
-      error = function(e) {
-        cat("Error: non-linear analysis failed\n")
-        stop(safeError(e))
-      })
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
+#  output$time_lag <- renderPlot({
+#    req(input$upload)
+#    tryCatch({
+#      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+#      hrv.data = BuildNIHR(hrv.data)
+#      if(input$filter_button){
+#        hrv.data = FilterNIHR(hrv.data)
+#      }
+#      req(input$start_nla)
+#      tryCatch({
+#        hrv.data = CreateNonLinearAnalysis(hrv.data)
+#        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+#                                 useFunction = timeAsymmetry2, tau = 4,
+#                                 doPlot = FALSE)
+#        CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax)
+#      },
+#      error = function(e) {
+#        cat("Error: non-linear analysis failed\n")
+#        stop(safeError(e))
+#      })
+#    },
+#    error = function(e) {
+#      cat("Error: upload failed\n")
+#      stop(safeError(e))
+#    })
+#  })
+  
+#  output$emb_dim <- renderPlot({
+#    req(input$upload)
+#    tryCatch({
+#      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+#      hrv.data = BuildNIHR(hrv.data)
+#      if(input$filter_button){
+#        hrv.data = FilterNIHR(hrv.data)
+#      }
+#      req(input$start_nla)
+#      tryCatch({
+#        hrv.data = CreateNonLinearAnalysis(hrv.data)
+#        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+#                                 useFunction = timeAsymmetry2, tau = 4,
+#                                 doPlot = FALSE)
+#        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax,
+#                                    doPlot = FALSE)
+#        CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
+#                              timeLag = kTimeLag,
+#                              maxEmbeddingDim = input$maxEmbeddingDim)
+#      },
+#      error = function(e) {
+#        cat("Error: non-linear analysis failed\n")
+#        stop(safeError(e))
+#      })
+#    },
+#    error = function(e) {
+#      cat("Error: upload failed\n")
+#      stop(safeError(e))
+#    })
+#  })
+  
+#  output$corr_plot <- renderPlot({
+#    req(input$upload)
+#    tryCatch({
+#      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+#      hrv.data = BuildNIHR(hrv.data)
+#      if(input$filter_button){
+#        hrv.data = FilterNIHR(hrv.data)
+#      }
+#      req(input$start_nla)
+#      tryCatch({
+#        hrv.data = CreateNonLinearAnalysis(hrv.data)
+#        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+#                                 useFunction = timeAsymmetry2, tau = 4,
+#                                 doPlot = FALSE)
+#        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum",
+#                                    lagMax = input$lagMax, doPlot = FALSE)
+#        kEmbeddingDim = CalculateEmbeddingDim(hrv.data,
+#                                               numberPoints = input$numberPoints,
+#                                               timeLag = kTimeLag,
+#                                               maxEmbeddingDim = input$maxEmbeddingDim,
+#                                               doPlot = FALSE)
+#        req(input$start_cd)
+#        tryCatch({
+#          hrv.data = CalculateCorrDim(hrv.data, indexNonLinearAnalysis = 1,
+#                                      minEmbeddingDim = kEmbeddingDim - 1,
+#                                      maxEmbeddingDim = kEmbeddingDim + 2,
+#                                      timeLag = kTimeLag,
+#                                      minRadius = input$minRadius,
+#                                      maxRadius = input$maxRadius,
+#                                      pointsRadius = input$pointsRadius,
+#                                      theilerWindow = input$theilerWindow,
+#                                      doPlot = FALSE)
+#          PlotCorrDim(hrv.data, indexNonLinearAnalysis = 1)
+#        },
+#        error = function(e) {
+#          cat("Error: Correlation dimension analysis failed")
+#        })
+#      },
+#      error = function(e) {
+#        cat("Error: non-linear analysis failed\n")
+#        stop(safeError(e))
+#      })
+#    },
+#    error = function(e) {
+#      cat("Error: upload failed\n")
+#      stop(safeError(e))
+#    })
+#  })
+  
+#  output$lya_plot <- renderPlot({
+#    req(input$upload)
+#    tryCatch({
+#      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
+#      hrv.data = BuildNIHR(hrv.data)
+#      if(input$filter_button){
+#        hrv.data = FilterNIHR(hrv.data)
+#      }
+#      req(input$start_nla)
+#      tryCatch({
+#        hrv.data = CreateNonLinearAnalysis(hrv.data)
+#        hrv.data = SurrogateTest(hrv.data, significance = 0.05,
+#                                 useFunction = timeAsymmetry2, tau = 4,
+#                                 doPlot = FALSE)
+#        kTimeLag = CalculateTimeLag(hrv.data, method = "first.minimum", lagMax = input$lagMax,
+#                                    doPlot = FALSE)
+#        kEmbeddingDim = CalculateEmbeddingDim(hrv.data, numberPoints = input$numberPoints,
+#                              timeLag = kTimeLag,
+#                              maxEmbeddingDim = input$maxEmbeddingDim,
+#                              doPlot = FALSE)
+#        req(input$start_lya)
+#        tryCatch({
+#          hrv.data = CalculateMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1,
+#                                          minEmbeddingDim = kEmbeddingDim,
+#                                          maxEmbeddingDim = kEmbeddingDim + 2,
+#                                          timeLag = kTimeLag,
+#                                          radius = input$radius,
+#                                          theilerWindow = input$theilerWindowLya,
+#                                          doPlot = FALSE)
+#          PlotMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1)
+#        }, error = function(e) {
+#          cat("Error: Maximum Lyapunov exponent calculation failed")
+#        })
+#      },
+#      error = function(e) {
+#        cat("Error: non-linear analysis failed\n")
+#        stop(safeError(e))
+#      })
+#    },
+#    error = function(e) {
+#      cat("Error: upload failed\n")
+#      stop(safeError(e))
+#    })
+#  })
   
 }
 
