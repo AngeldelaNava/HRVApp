@@ -81,21 +81,21 @@ ui <- fluidPage(
                            splitLayout(
                              numericInput("minRadius", "", value = 1, min = 1,
                                           max = 500),
-                             numericInput("maxRadius", "", value = 100, min = 1,
+                             numericInput("maxRadius", "", value = 50, min = 1,
                                           max = 500)
                            ),
                            numericInput("pointsRadius",
                                         "Choose the number of radius to compute the correlation sum",
-                                        value = 100, min = 1, max = 500),
+                                        value = 15, min = 1, max = 500),
                            numericInput("theilerWindow",
                                         "Choose the value of the Theiler window",
-                                        value = 20, min = 1, max = 100),
+                                        value = 100, min = 1, max = 1000),
                            strong("Choose the Regression Range: "),
                            splitLayout(
-                             numericInput("minRegC", "", value = 1.5, min = 1.0,
+                             numericInput("minRegC", "", value = 40, min = 1,
                                           max = 100),
-                             numericInput("maxRegC", "", value = 10.0,
-                                          min = 1.0, max = 100)
+                             numericInput("maxRegC", "", value = 50,
+                                          min = 1, max = 100)
                            )
                   ),
                   tabPanel("Maximum Lyapunov",
@@ -103,16 +103,16 @@ ui <- fluidPage(
                                         "Start Maximum Lyapunov exponent (WARNING: Takes a long time)"),
                            numericInput("radius",
                                         "Choose the radius of the analysis",
-                                        value = 1000, min = 1, max = 5000),
+                                        value = 10, min = 1, max = 5000),
                            numericInput("theilerWindowLya",
                                         "Choose the value of the Theiler window",
-                                        value = 20, min = 1, max = 100),
+                                        value = 100, min = 1, max = 1000),
                            strong("Choose the Regression Range: "),
                            splitLayout(
-                             numericInput("minRegL", "", value = 1.0, min = 1.0,
-                                          max = 100.0),
-                             numericInput("maxRegL", "", value = 6.0,
-                                          min = 1.0, max = 100.0)
+                             numericInput("minRegL", "", value = 10, min = 0,
+                                          max = 20),
+                             numericInput("maxRegL", "", value = 20,
+                                          min = 0, max = 20))
                   )
       ),
       actionButton("downloadButton", "Download analysis.csv"),
@@ -144,12 +144,14 @@ ui <- fluidPage(
                               tabPanel("Correlation Dimension",
                                        h3("Nonlinear Analysis by Correlation Dimension"),
                                        plotOutput("corr_plot"),
-                                       tableOutput("corr_table")
+                                       p("Value of the statistic: ",
+                                         textOutput("corr_text"))
                               ),
                               tabPanel("Maximum Lyapunov",
                                        h3("Nonlinear Analysis by Maximum Lyapunov Exponent"),
                                        plotOutput("lya_plot"),
-                                       tableOutput("lya_table")
+                                       p("Value of the statistic: ",
+                                         textOutput("lya_text"))
                               )
                     )
          )
@@ -157,6 +159,7 @@ ui <- fluidPage(
     )
   )
 )
+
 
 
 server <- function(input, output, session) {
@@ -528,9 +531,6 @@ server <- function(input, output, session) {
       req(input$start_nla)
       tryCatch({
         hrv.data = CreateNonLinearAnalysis(hrv.data)
-        hrv.data = SurrogateTest(
-          hrv.data, significance = 0.05, useFunction = timeAsymmetry2, tau = 4,
-          doPlot = FALSE)
         kTimeLag = CalculateTimeLag(
           hrv.data, method = "first.minimum", lagMax = input$lagMax,
           doPlot = FALSE)
@@ -548,45 +548,59 @@ server <- function(input, output, session) {
             maxEmbeddingDim = input$maxEmbeddingDim, doPlot = TRUE)
         })
         req(input$start_cd)
-        tryCatch({
-          hrv.data = CalculateCorrDim(
-            hrv.data, indexNonLinearAnalysis = 1,
-            minEmbeddingDim = kEmbeddingDim - 1,
-            maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
-            minRadius = input$minRadius, maxRadius = input$maxRadius,
-            pointsRadius = input$pointsRadius,
-            theilerWindow = input$theilerWindow, doPlot = FALSE)
-          hrv.data = EstimateCorrDim(
-            hrv.data, indexNonLinearAnalysis = 1,
-            regressionRange = c(minRegC, maxRegC),
-            useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
-            doPlot = FALSE)
-          output$corr_plot <- renderPlot({
-            PlotCorrDim(hrv.data, indexNonLinearAnalysis = 1)
+          tryCatch({
+            hrv.data = CalculateCorrDim(
+              hrv.data, indexNonLinearAnalysis = 1,
+              minEmbeddingDim = kEmbeddingDim - 1,
+              maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
+              minRadius = input$minRadius, maxRadius = input$maxRadius,
+              pointsRadius = input$pointsRadius,
+              theilerWindow = input$theilerWindow, doPlot = FALSE)
+            hrv.data = EstimateCorrDim(
+              hrv.data, indexNonLinearAnalysis = 1,
+              regressionRange = c(input$minRegC, input$maxRegC),
+              useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
+              doPlot = FALSE)
+            output$corr_plot <- renderPlot({
+              EstimateCorrDim(
+                hrv.data, indexNonLinearAnalysis = 1,
+                regressionRange = c(input$minRegC, input$maxRegC),
+                useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
+                doPlot = TRUE)
+            })
+            output$corr_text <- renderText({
+              hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
+            })
+          },
+          error = function(e) {
+            cat("Error: Correlation dimension analysis failed")
           })
-        },
-        error = function(e) {
-          cat("Error: Correlation dimension analysis failed")
-        })
         req(input$start_lya)
-        tryCatch({
-          hrv.data = CalculateMaxLyapunov(
-            hrv.data, indexNonLinearAnalysis = 1,
-            minEmbeddingDim = kEmbeddingDim,
-            maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
-            radius = input$radius, theilerWindow = input$theilerWindowLya,
-            doPlot = FALSE)
-          hrv.data = EstimateMaxLyapunov(
-            hrv.data, indexNonLinearAnalysis = 1,
-            regressionRange = c(minRegL, maxRegL),
-            useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2), doPlot = FALSE)
-          output$lya_plot <- renderPlot({
-            PlotMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1)
+          tryCatch({
+            hrv.data = CalculateMaxLyapunov(
+              hrv.data, indexNonLinearAnalysis = 1,
+              minEmbeddingDim = kEmbeddingDim,
+              maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
+              radius = input$radius, theilerWindow = input$theilerWindowLya,
+              doPlot = FALSE)
+            hrv.data = EstimateMaxLyapunov(
+              hrv.data, indexNonLinearAnalysis = 1,
+              regressionRange = c(input$minRegL, input$maxRegL),
+              useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
+              doPlot = FALSE)
+            output$lya_plot <- renderPlot({
+              EstimateMaxLyapunov(
+                hrv.data, indexNonLinearAnalysis = 1,
+                regressionRange = c(input$minRegL, input$maxRegL),
+                useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
+                doPlot = TRUE)
+            })
+            output$lya_text <- renderText({
+              hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
+            })
+          }, error = function(e) {
+            cat("Error: Maximum Lyapunov exponent calculation failed")
           })
-        }, error = function(e) {
-          cat("Error: Maximum Lyapunov exponent calculation failed")
-        })
-        
         
       },
       error = function(e) {
