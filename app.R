@@ -21,10 +21,9 @@ ui <- fluidPage(
                            numericInput("interval",
                                         "Choose the interval of the Time Analyisis",
                                         value = 7.8125, min = 0.0, max = 20.0),
-                           p("Value of SDNN (in msec.):", textOutput("text")),
                            actionButton("csv_button",
-                                        "Download time_analysis.csv"),
-                           p(textOutput("download_message"))),
+                                        "Download time_analysis.csv")
+                  ),
                   tabPanel("Frequency Analysis",
                            numericInput("freqhr", "Choose the sample frequency",
                                        min = 1, max = 10, value = 4),
@@ -61,8 +60,7 @@ ui <- fluidPage(
                                           min = 0.0, max = 1.0)
                            ),
                            actionButton("csv_button_f",
-                                        "Download freq_analysis.csv"),
-                           p(textOutput("download_message_f"))
+                                        "Download freq_analysis.csv")
                   ),
                   tabPanel("Embedding Dimension & Timelag",
                            numericInput("lagMax", "Choose the maximum lag",
@@ -96,14 +94,16 @@ ui <- fluidPage(
                                           max = 100),
                              numericInput("maxRegC", "", value = 50,
                                           min = 1, max = 100)
-                           )
+                           ),
+                           actionButton("csv_button_c",
+                                        "Download corr_analysis.csv")
                   ),
                   tabPanel("Maximum Lyapunov",
                            actionButton("start_lya",
                                         "Start Maximum Lyapunov exponent (WARNING: Takes a long time)"),
                            numericInput("radius",
                                         "Choose the radius of the analysis",
-                                        value = 10, min = 1, max = 5000),
+                                        value = 50, min = 1, max = 5000),
                            numericInput("theilerWindowLya",
                                         "Choose the value of the Theiler window",
                                         value = 100, min = 1, max = 1000),
@@ -112,11 +112,12 @@ ui <- fluidPage(
                              numericInput("minRegL", "", value = 10, min = 0,
                                           max = 20),
                              numericInput("maxRegL", "", value = 20,
-                                          min = 0, max = 20))
+                                          min = 0, max = 20)),
+                           actionButton("csv_button_ml",
+                                        "Download lya_analysis.csv")
                   )
       ),
-      actionButton("downloadButton", "Download analysis.csv"),
-      p(textOutput("download_general"))
+      actionButton("downloadButton", "Download analysis.csv")
     ),
     mainPanel(
       tabsetPanel(id = "t2", type = "pills",
@@ -188,70 +189,7 @@ server <- function(input, output, session) {
     }
   })
   
-  output$download_general <- renderText({
-    req(input$upload)
-    
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      
-      tryCatch({
-        hrv.data = CreateTimeAnalysis(hrv.data, size = input$size,
-                                      interval = input$interval)
-        CHARACTERISTICS = c("Size", "Interval", "SDNN (msec.)", "SDANN (msec.)",
-                            "SDNNIDX (msec.)", "pNN50 (%)", "SDSD (msec.)",
-                            "r-MSSD (msec.)", "IRRR (msec.)", "MADRR (msec.)",
-                            "TINN (msec.)", "HRV index")
-        VALUES = c(input$size, input$interval, hrv.data$TimeAnalysis[[1]]$SDNN,
-                   hrv.data$TimeAnalysis[[1]]$SDANN,
-                   hrv.data$TimeAnalysis[[1]]$SDNNIDX,
-                   hrv.data$TimeAnalysis[[1]]$pNN50,
-                   hrv.data$TimeAnalysis[[1]]$SDSD,
-                   hrv.data$TimeAnalysis[[1]]$rMSSD,
-                   hrv.data$TimeAnalysis[[1]]$IRRR,
-                   hrv.data$TimeAnalysis[[1]]$MADRR,
-                   hrv.data$TimeAnalysis[[1]]$TINN,
-                   hrv.data$TimeAnalysis[[1]]$HRVi)
-        hrv.data = InterpolateNIHR(hrv.data, freqhr = input$freqhr)
-        hrv.data = CreateFreqAnalysis(hrv.data)
-        hrv.data = CalculatePSD(hrv.data, indexFreqAnalysis = 1, doPlot = FALSE)
-        BANDS = c("ULF", "VLF", "LF", "HF")
-        ENERGY = CalculateEnergyInPSDBands(hrv.data, indexFreqAnalysis = 1,
-                                           ULFmax = (input$ULF2),
-                                           VLFmin = (input$VLF1),
-                                           VLFmax = (input$VLF2),
-                                           LFmin = (input$LF1),
-                                           LFmax = (input$LF2),
-                                           HFmin = (input$HF1),
-                                           HFmax = (input$HF2))
-        
-        req(input$downloadButton)
-        tryCatch({
-          A = c(CHARACTERISTICS, BANDS)
-          B = c(VALUES, ENERGY)
-          write.csv(data.frame(A, B), "analysis.csv")
-          c <- "analysis.csv downloaded succesfully\n"
-        }, error = function(e){
-          cat("Error: analysis.csv not downloaded\n")
-          c <- "Error: analysis.csv not downloaded"
-          stop(safeError(e))
-        })
-        c
-      },
-      error = function(e) {
-        cat("Error: data filtering failed\n")
-        stop(safeError(e))
-      })
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
-  
+
   output$graphic <- renderPlot({
     req(input$upload)
     
@@ -320,132 +258,9 @@ server <- function(input, output, session) {
     })
   })
   
-  output$text <- renderText({
-    req(input$upload)
-    
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      
-      tryCatch({
-        hrv.data = CreateTimeAnalysis(hrv.data, size = input$size,
-                                      interval = input$interval)
-        hrv.data$TimeAnalysis[[1]]$SDNN
-      },
-      error = function(e) {
-        cat("Error: data filtering failed\n")
-        stop(safeError(e))
-      })
-      
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
-    
-  output$download_message <- renderText({
-    req(input$upload)
-    
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      
-      tryCatch({
-        hrv.data = CreateTimeAnalysis(hrv.data, size = input$size,
-                                      interval = input$interval)
-        CHARACTERISTICS = c("Size", "Interval", "SDNN (msec.)", "SDANN (msec.)",
-                            "SDNNIDX (msec.)", "pNN50 (%)", "SDSD (msec.)",
-                            "r-MSSD (msec.)", "IRRR (msec.)", "MADRR (msec.)",
-                            "TINN (msec.)", "HRV index")
-        VALUES = c(input$size, input$interval, hrv.data$TimeAnalysis[[1]]$SDNN,
-                   hrv.data$TimeAnalysis[[1]]$SDANN,
-                   hrv.data$TimeAnalysis[[1]]$SDNNIDX,
-                   hrv.data$TimeAnalysis[[1]]$pNN50,
-                   hrv.data$TimeAnalysis[[1]]$SDSD,
-                   hrv.data$TimeAnalysis[[1]]$rMSSD,
-                   hrv.data$TimeAnalysis[[1]]$IRRR,
-                   hrv.data$TimeAnalysis[[1]]$MADRR,
-                   hrv.data$TimeAnalysis[[1]]$TINN,
-                   hrv.data$TimeAnalysis[[1]]$HRVi)
-        
-        req(input$csv_button)
-        tryCatch({
-          write.csv(data.frame(CHARACTERISTICS, VALUES), "time_analysis.csv")
-          c <- "time_analysis.csv downloaded succesfully\n"
-        }, error = function(e){
-          cat("Error: time_analysis.csv not downloaded\n")
-          c <- "Error: time_analysis.csv not downloaded"
-          stop(safeError(e))
-        })
-        c
-      },
-      error = function(e) {
-        cat("Error: data filtering failed\n")
-        stop(safeError(e))
-      })
-      
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
-  
-  output$download_message_f <- renderText({
-    req(input$upload)
-    
-    tryCatch({
-      hrv.data = LoadBeatAscii(hrv.data, input$upload$datapath)
-      hrv.data = BuildNIHR(hrv.data)
-      
-      if(input$filter_button){
-        hrv.data = FilterNIHR(hrv.data)
-      }
-      
-      tryCatch({
-        hrv.data = InterpolateNIHR(hrv.data, freqhr = input$freqhr)
-        hrv.data = CreateFreqAnalysis(hrv.data)
-        hrv.data = CalculatePSD(hrv.data, indexFreqAnalysis = 1, doPlot = FALSE)
-        BANDS = c("ULF", "VLF", "LF", "HF")
-        ENERGY = CalculateEnergyInPSDBands(hrv.data, indexFreqAnalysis = 1,
-                                           ULFmax = (input$ULF2),
-                                           VLFmin = (input$VLF1),
-                                           VLFmax = (input$VLF2),
-                                           LFmin = (input$LF1),
-                                           LFmax = (input$LF2),
-                                           HFmin = (input$HF1),
-                                           HFmax = (input$HF2))
-        req(input$csv_button_f)
-        
-        tryCatch({
-          write.csv(data.frame(BANDS, ENERGY), "freq_analysis.csv")
-          c <- "freq_analysis.csv downloaded succesfully\n"
-        }, error = function(e){
-          cat("Error: freq_analysis.csv not downloaded\n")
-          c <- "Error: _analysis.csv not downloaded"
-          stop(safeError(e))
-        })
-      },
-      error = function(e) {
-        cat("Error: data filtering failed\n")
-        stop(safeError(e))
-      })
-    },
-    error = function(e) {
-      cat("Error: upload failed\n")
-      stop(safeError(e))
-    })
-  })
-  
+
+ 
+ 
   output$freq_analysis <- renderPlot({
     req(input$upload)
     
@@ -528,85 +343,144 @@ server <- function(input, output, session) {
       if(input$filter_button){
         hrv.data = FilterNIHR(hrv.data)
       }
-      req(input$start_nla)
-      tryCatch({
-        hrv.data = CreateNonLinearAnalysis(hrv.data)
-        kTimeLag = CalculateTimeLag(
-          hrv.data, method = "first.minimum", lagMax = input$lagMax,
-          doPlot = FALSE)
-        output$time_lag <- renderPlot({
-          CalculateTimeLag(
+      hrv.data = CreateTimeAnalysis(hrv.data, size = input$size,
+                                    interval = input$interval)
+      CHARACTERISTICS = c("Size", "Interval", "SDNN (msec.)", "SDANN (msec.)",
+                          "SDNNIDX (msec.)", "pNN50 (%)", "SDSD (msec.)",
+                          "r-MSSD (msec.)", "IRRR (msec.)", "MADRR (msec.)",
+                          "TINN (msec.)", "HRV index")
+      VALUES = c(input$size, input$interval, hrv.data$TimeAnalysis[[1]]$SDNN,
+                 hrv.data$TimeAnalysis[[1]]$SDANN,
+                 hrv.data$TimeAnalysis[[1]]$SDNNIDX,
+                 hrv.data$TimeAnalysis[[1]]$pNN50,
+                 hrv.data$TimeAnalysis[[1]]$SDSD,
+                 hrv.data$TimeAnalysis[[1]]$rMSSD,
+                 hrv.data$TimeAnalysis[[1]]$IRRR,
+                 hrv.data$TimeAnalysis[[1]]$MADRR,
+                 hrv.data$TimeAnalysis[[1]]$TINN,
+                 hrv.data$TimeAnalysis[[1]]$HRVi)
+      if(input$csv_button){
+        write.csv(data.frame(CHARACTERISTICS, VALUES), "time_analysis.csv")
+      }
+      hrv.data = InterpolateNIHR(hrv.data, freqhr = input$freqhr)
+      hrv.data = CreateFreqAnalysis(hrv.data)
+      hrv.data = CalculatePSD(hrv.data, indexFreqAnalysis = 1, doPlot = FALSE)
+      BANDS = c("ULF", "VLF", "LF", "HF")
+      ENERGY = CalculateEnergyInPSDBands(hrv.data, indexFreqAnalysis = 1,
+                                         ULFmax = (input$ULF2),
+                                         VLFmin = (input$VLF1),
+                                         VLFmax = (input$VLF2),
+                                         LFmin = (input$LF1),
+                                         LFmax = (input$LF2),
+                                         HFmin = (input$HF1),
+                                         HFmax = (input$HF2))
+      if(input$csv_button_f){
+        write.csv(data.frame(BANDS, ENERGY), "freq_analysis.csv")
+      }
+    
+      A = c(CHARACTERISTICS, BANDS)
+      B = c(VALUES, ENERGY)
+    
+      
+      
+      if(input$start_nla){
+        tryCatch({
+          hrv.data = CreateNonLinearAnalysis(hrv.data)
+          kTimeLag = CalculateTimeLag(
             hrv.data, method = "first.minimum", lagMax = input$lagMax,
-            doPlot = TRUE)
-        })
-        kEmbeddingDim = CalculateEmbeddingDim(
-          hrv.data, numberPoints = input$numberPoints, timeLag = kTimeLag,
-          maxEmbeddingDim = input$maxEmbeddingDim, doPlot = FALSE)
-        output$emb_dim <- renderPlot({
-          CalculateEmbeddingDim(
+            doPlot = FALSE)
+          output$time_lag <- renderPlot({
+            CalculateTimeLag(
+              hrv.data, method = "first.minimum", lagMax = input$lagMax,
+              doPlot = TRUE)
+          })
+          kEmbeddingDim = CalculateEmbeddingDim(
             hrv.data, numberPoints = input$numberPoints, timeLag = kTimeLag,
-            maxEmbeddingDim = input$maxEmbeddingDim, doPlot = TRUE)
-        })
-        req(input$start_cd)
-          tryCatch({
-            hrv.data = CalculateCorrDim(
-              hrv.data, indexNonLinearAnalysis = 1,
-              minEmbeddingDim = kEmbeddingDim - 1,
-              maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
-              minRadius = input$minRadius, maxRadius = input$maxRadius,
-              pointsRadius = input$pointsRadius,
-              theilerWindow = input$theilerWindow, doPlot = FALSE)
-            hrv.data = EstimateCorrDim(
-              hrv.data, indexNonLinearAnalysis = 1,
-              regressionRange = c(input$minRegC, input$maxRegC),
-              useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
-              doPlot = FALSE)
-            output$corr_plot <- renderPlot({
-              EstimateCorrDim(
+            maxEmbeddingDim = input$maxEmbeddingDim, doPlot = FALSE)
+          output$emb_dim <- renderPlot({
+            CalculateEmbeddingDim(
+              hrv.data, numberPoints = input$numberPoints, timeLag = kTimeLag,
+              maxEmbeddingDim = input$maxEmbeddingDim, doPlot = TRUE)
+          })
+          if(input$start_cd){
+            tryCatch({
+              hrv.data = CalculateCorrDim(
+                hrv.data, indexNonLinearAnalysis = 1,
+                minEmbeddingDim = kEmbeddingDim - 1,
+                maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
+                minRadius = input$minRadius, maxRadius = input$maxRadius,
+                pointsRadius = input$pointsRadius,
+                theilerWindow = input$theilerWindow, doPlot = FALSE)
+              hrv.data = EstimateCorrDim(
                 hrv.data, indexNonLinearAnalysis = 1,
                 regressionRange = c(input$minRegC, input$maxRegC),
                 useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
-                doPlot = TRUE)
+                doPlot = FALSE)
+              A = c(A, "Correlation Statistic")
+              B = c(B, hrv.data$NonLinearAnalysis[[1]]$correlation$statistic)
+              output$corr_plot <- renderPlot({
+                EstimateCorrDim(
+                  hrv.data, indexNonLinearAnalysis = 1,
+                  regressionRange = c(input$minRegC, input$maxRegC),
+                  useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
+                  doPlot = TRUE)
+              })
+              output$corr_text <- renderText({
+                hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
+              })
+              if(input$csv_button_c){
+                C = hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
+                write.csv(data.frame(c("Correlation Statistic"), c(C)),
+                          "corr_analysis.csv")
+              }
+            },
+            error = function(e) {
+              cat("Error: Correlation dimension analysis failed")
             })
-            output$corr_text <- renderText({
-              hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
-            })
-          },
-          error = function(e) {
-            cat("Error: Correlation dimension analysis failed")
-          })
-        req(input$start_lya)
-          tryCatch({
-            hrv.data = CalculateMaxLyapunov(
-              hrv.data, indexNonLinearAnalysis = 1,
-              minEmbeddingDim = kEmbeddingDim,
-              maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
-              radius = input$radius, theilerWindow = input$theilerWindowLya,
-              doPlot = FALSE)
-            hrv.data = EstimateMaxLyapunov(
-              hrv.data, indexNonLinearAnalysis = 1,
-              regressionRange = c(input$minRegL, input$maxRegL),
-              useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
-              doPlot = FALSE)
-            output$lya_plot <- renderPlot({
-              EstimateMaxLyapunov(
+          }
+          if(input$start_lya){
+            tryCatch({
+              hrv.data = CalculateMaxLyapunov(
+                hrv.data, indexNonLinearAnalysis = 1,
+                minEmbeddingDim = kEmbeddingDim,
+                maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
+                radius = input$radius, theilerWindow = input$theilerWindowLya,
+                doPlot = FALSE)
+              hrv.data = EstimateMaxLyapunov(
                 hrv.data, indexNonLinearAnalysis = 1,
                 regressionRange = c(input$minRegL, input$maxRegL),
                 useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
-                doPlot = TRUE)
+                doPlot = FALSE)
+              A = c(A, "Max. Lyapunov Statistic")
+              B = c(B, hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic)
+              output$lya_plot <- renderPlot({
+                EstimateMaxLyapunov(
+                  hrv.data, indexNonLinearAnalysis = 1,
+                  regressionRange = c(input$minRegL, input$maxRegL),
+                  useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
+                  doPlot = TRUE)
+              })
+              output$lya_text <- renderText({
+                hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
+              })
+              if(input$csv_button_ml){
+                C = hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
+                write.csv(data.frame(c("Max. Lyapunov Statistic"), c(C)),
+                          "lya_analysis.csv")
+              }
+            }, error = function(e) {
+              cat("Error: Maximum Lyapunov exponent calculation failed")
             })
-            output$lya_text <- renderText({
-              hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
-            })
-          }, error = function(e) {
-            cat("Error: Maximum Lyapunov exponent calculation failed")
-          })
-        
-      },
-      error = function(e) {
-        cat("Error: non-linear analysis failed\n")
-        stop(safeError(e))
-      })
+          }
+        },
+        error = function(e) {
+          cat("Error: non-linear analysis failed\n")
+          stop(safeError(e))
+        })
+      }
+      if(input$downloadButton){
+        write.csv(data.frame(A, B), "analysis.csv")
+      }
     },
     error = function(e) {
       cat("Error: upload failed\n")
