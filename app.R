@@ -75,6 +75,9 @@ ui <- fluidPage(
                   tabPanel("Correlation Dimension",
                            actionButton("start_cd",
                                         "Start Correlation dimension (WARNING: Takes a long time)"),
+                           actionButton("reg_correlation",
+                                        "Estimate the regression line"),
+                           p("\n"),
                            strong("Choose the range of distance to compute the correlation sum"),
                            splitLayout(
                              numericInput("minRadius", "", value = 1, min = 1,
@@ -90,7 +93,7 @@ ui <- fluidPage(
                                         value = 100, min = 1, max = 1000),
                            strong("Choose the Regression Range: "),
                            splitLayout(
-                             numericInput("minRegC", "", value = 40, min = 1,
+                             numericInput("minRegC", "", value = 20, min = 1,
                                           max = 100),
                              numericInput("maxRegC", "", value = 50,
                                           min = 1, max = 100)
@@ -100,7 +103,9 @@ ui <- fluidPage(
                   ),
                   tabPanel("Maximum Lyapunov",
                            actionButton("start_lya",
-                                        "Start Maximum Lyapunov exponent (WARNING: Takes a long time)"),
+                                        "Start Max. Lyapunov exponent (WARNING: Takes a long time)"),
+                           actionButton("reg_lya",
+                                        "Estimate the regression line"),
                            numericInput("radius",
                                         "Choose the radius of the analysis",
                                         value = 50, min = 1, max = 5000),
@@ -411,27 +416,32 @@ server <- function(input, output, session) {
                 minRadius = input$minRadius, maxRadius = input$maxRadius,
                 pointsRadius = input$pointsRadius,
                 theilerWindow = input$theilerWindow, doPlot = FALSE)
-              hrv.data = EstimateCorrDim(
-                hrv.data, indexNonLinearAnalysis = 1,
-                regressionRange = c(input$minRegC, input$maxRegC),
-                useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
-                doPlot = FALSE)
-              A = c(A, "Correlation Statistic")
-              B = c(B, hrv.data$NonLinearAnalysis[[1]]$correlation$statistic)
               output$corr_plot <- renderPlot({
-                EstimateCorrDim(
+                PlotCorrDim(hrv.data, indexNonLinearAnalysis = 1)
+              })
+              if(input$reg_correlation){
+                hrv.data = EstimateCorrDim(
                   hrv.data, indexNonLinearAnalysis = 1,
                   regressionRange = c(input$minRegC, input$maxRegC),
                   useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
-                  doPlot = TRUE)
-              })
-              output$corr_text <- renderText({
-                hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
-              })
-              if(input$csv_button_c){
-                C = hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
-                write.csv(data.frame(c("Correlation Statistic"), c(C)),
-                          "corr_analysis.csv")
+                  doPlot = FALSE)
+                A = c(A, "Correlation Statistic")
+                B = c(B, hrv.data$NonLinearAnalysis[[1]]$correlation$statistic)
+                output$corr_plot <- renderPlot({
+                  EstimateCorrDim(
+                    hrv.data, indexNonLinearAnalysis = 1,
+                    regressionRange = c(input$minRegC, input$maxRegC),
+                    useEmbeddings = (kEmbeddingDim - 1):(kEmbeddingDim + 2),
+                    doPlot = TRUE)
+                })
+                output$corr_text <- renderText({
+                  hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
+                })
+                if(input$csv_button_c){
+                  C = hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
+                  write.csv(data.frame(c("Correlation Statistic"), c(C)),
+                            "corr_analysis.csv")
+                }
               }
             },
             error = function(e) {
@@ -446,27 +456,32 @@ server <- function(input, output, session) {
                 maxEmbeddingDim = kEmbeddingDim + 2, timeLag = kTimeLag,
                 radius = input$radius, theilerWindow = input$theilerWindowLya,
                 doPlot = FALSE)
-              hrv.data = EstimateMaxLyapunov(
-                hrv.data, indexNonLinearAnalysis = 1,
-                regressionRange = c(input$minRegL, input$maxRegL),
-                useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
-                doPlot = FALSE)
-              A = c(A, "Max. Lyapunov Statistic")
-              B = c(B, hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic)
               output$lya_plot <- renderPlot({
-                EstimateMaxLyapunov(
+                PlotMaxLyapunov(hrv.data, indexNonLinearAnalysis = 1)
+              })
+              if(input$reg_lya){
+                hrv.data = EstimateMaxLyapunov(
                   hrv.data, indexNonLinearAnalysis = 1,
                   regressionRange = c(input$minRegL, input$maxRegL),
                   useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
-                  doPlot = TRUE)
-              })
-              output$lya_text <- renderText({
-                hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
-              })
-              if(input$csv_button_ml){
-                C = hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
-                write.csv(data.frame(c("Max. Lyapunov Statistic"), c(C)),
-                          "lya_analysis.csv")
+                  doPlot = FALSE)
+                A = c(A, "Max. Lyapunov Statistic")
+                B = c(B, hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic)
+                output$lya_plot <- renderPlot({
+                  EstimateMaxLyapunov(
+                    hrv.data, indexNonLinearAnalysis = 1,
+                    regressionRange = c(input$minRegL, input$maxRegL),
+                    useEmbeddings = (kEmbeddingDim):(kEmbeddingDim + 2),
+                    doPlot = TRUE)
+                })
+                output$lya_text <- renderText({
+                  hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
+                })
+                if(input$csv_button_ml){
+                  C = hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
+                  write.csv(data.frame(c("Max. Lyapunov Statistic"), c(C)),
+                            "lya_analysis.csv")
+                }
               }
             }, error = function(e) {
               cat("Error: Maximum Lyapunov exponent calculation failed")
