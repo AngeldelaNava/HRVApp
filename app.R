@@ -1,6 +1,5 @@
 library(shiny)
 library(RHRV)
-library(nonlinearTseries)
 
 source("hrv.R")
 
