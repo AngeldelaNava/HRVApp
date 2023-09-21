@@ -5,9 +5,9 @@ account: angel-de-la-nava
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8065211
-bundleId: 7711215
+bundleId: 7711417
 url: https://angel-de-la-nava.shinyapps.io/hrvapp/
-when: 1695295673.00958
-lastSyncTime: 1695295673.0096
+when: 1695300166.66795
+lastSyncTime: 1695300166.66797
 asMultiple: FALSE
 asStatic: FALSE
