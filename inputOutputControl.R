@@ -4,8 +4,6 @@ source("nonlinearAnalysis.R")
 source("csv.R")
 
 inputOutputControl <- function(input, output, session, hrv.data){
-  
-  observe({
     
     req(input$upload)
     
@@ -42,7 +40,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
         hrv.data = InterpolateNIHR(hrv.data, freqhr = input$freqhr)
         hrv.data = CreateFreqAnalysis(hrv.data)
         
-        frequencyAnalysis(input, output, session, hrv.data)
+        hrv.data <- frequencyAnalysis(input, output, session, hrv.data)
         
         BANDS = c("ULF", "VLF", "LF", "HF")
         ENERGY = CalculateEnergyInPSDBands(hrv.data, indexFreqAnalysis = 1,
@@ -65,7 +63,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
             kTimeLag = CalculateTimeLag(
               hrv.data, method = "first.minimum", lagMax = input$lagMax,
               doPlot = FALSE)
-            timelag(input, output, session, hrv.data, kTimeLag)
+            timeLag(input, output, session, hrv.data, kTimeLag)
             
             kEmbeddingDim = CalculateEmbeddingDim(
               hrv.data, numberPoints = input$numberPoints, timeLag = kTimeLag,
@@ -93,7 +91,8 @@ inputOutputControl <- function(input, output, session, hrv.data){
                   A <- csvSum(A, "Correlation Statistic")
                   C <- hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
                   B <- csvSum(B, C)
-                  correlationDimensionEstimation(input, output, kEmbeddingDim)
+                  correlationDimensionEstimation(input, output, kEmbeddingDim,
+                                                 hrv.data)
                   correlatonStatistic(output, hrv.data)
                   if(input$csv_button_c){
                     C = hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
@@ -126,7 +125,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
                   A <- csvSum(A, "Max. Lyapunov Statistic")
                   C = hrv.data$NonLinearAnalysis[[1]]$lyapunov$statistic
                   B <- csvSum(B, C)
-                  lyapunovEstimation(input, output, kEmbeddingDim)
+                  lyapunovEstimation(input, output, kEmbeddingDim, hrv.data)
                   lyapunovStatistic(output, hrv.data)
                   if(input$csv_button_ml){
                     csvLya(data.frame(c("Max. Lyapunov Statistic"), c(C)),
@@ -154,6 +153,4 @@ inputOutputControl <- function(input, output, session, hrv.data){
       cat("Error: upload failed\n")
       stop(safeError(e))
     })
-    
-  })
 }

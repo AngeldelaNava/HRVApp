@@ -8,6 +8,7 @@ server <- function(input, output, session) {
     tabsControl(input, output, session)
   })
   
+  observe({
   inputOutputControl(input, output, session, hrv.data)
-  
+  })
 }

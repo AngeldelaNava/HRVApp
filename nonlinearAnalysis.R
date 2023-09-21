@@ -21,7 +21,8 @@ correlationDimensionCalculation <- function(output, hrv.data){
   })
 }
 
-correlationDimensionEstimation <- function(input, output, kEmbeddingDim){
+correlationDimensionEstimation <- function(input, output, kEmbeddingDim,
+                                           hrv.data){
   output$corr_plot <- renderPlot({
     EstimateCorrDim(
       hrv.data, indexNonLinearAnalysis = 1,
@@ -42,7 +43,7 @@ lyapunovCalculation <- function(output, hrv.data){
   })
 }
 
-lyapunovEstimation <- function(input, output, kEmbeddingDim){
+lyapunovEstimation <- function(input, output, kEmbeddingDim, hrv.data){
   output$lya_plot <- renderPlot({
     EstimateMaxLyapunov(
       hrv.data, indexNonLinearAnalysis = 1,

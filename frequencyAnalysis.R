@@ -26,4 +26,5 @@ frequencyAnalysis <- function(input, output, session, hrv.data){
     colnames(df) <- BANDS
     df
   })
+  return (hrv.data)
 }
