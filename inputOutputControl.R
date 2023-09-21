@@ -32,7 +32,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
                  hrv.data$TimeAnalysis[[1]]$TINN,
                  hrv.data$TimeAnalysis[[1]]$HRVi)
       if(input$csv_button){
-        csvTime(data.frame(CHARACTERISTICS, VALUES), "time_analysis.csv")
+        csvDownload(data.frame(CHARACTERISTICS, VALUES), "time_analysis.csv")
       }
       A <- csvSum(CHARACTERISTICS, c())
       B <- csvSum(VALUES, c())
@@ -52,7 +52,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
                                            HFmin = (input$HF1),
                                            HFmax = (input$HF2))
         if(input$csv_button){
-          csvFreq(data.frame(CHARACTERISTICS, VALUES), "time_analysis.csv")
+          csvDownload(data.frame(CHARACTERISTICS, VALUES), "time_analysis.csv")
         }
         A <- csvSum(A, BANDS)
         B <- csvSum(B, ENERGY)
@@ -96,7 +96,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
                   correlatonStatistic(output, hrv.data)
                   if(input$csv_button_c){
                     C = hrv.data$NonLinearAnalysis[[1]]$correlation$statistic
-                    csvCorr(data.frame(c("Correlation Statistic"), c(C)),
+                    csvDownload(data.frame(c("Correlation Statistic"), c(C)),
                               "corr_analysis.csv")
                   }
                 }
@@ -128,7 +128,7 @@ inputOutputControl <- function(input, output, session, hrv.data){
                   lyapunovEstimation(input, output, kEmbeddingDim, hrv.data)
                   lyapunovStatistic(output, hrv.data)
                   if(input$csv_button_ml){
-                    csvLya(data.frame(c("Max. Lyapunov Statistic"), c(C)),
+                    csvDownload(data.frame(c("Max. Lyapunov Statistic"), c(C)),
                               "lya_analysis.csv")
                   }
                 }
@@ -148,6 +148,10 @@ inputOutputControl <- function(input, output, session, hrv.data){
         cat("Error: data filtering failed\n")
         stop(safeError(e))
       })
+      
+      if(input$downloadButton){
+        csvDownload(data.frame(A,B), "analysis.csv")
+      }
     },
     error = function(e) {
       cat("Error: upload failed\n")
